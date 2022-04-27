@@ -1,0 +1,6 @@
+exports_files(srcs = ["crosslink.proto"])
+
+filegroup(
+    name = "com_github_foonetic_crosslink_protocol",
+    srcs = ["crosslink.proto"],
+)
