@@ -29,15 +29,6 @@ message DecimalValue {
 // - quantity: a quantity where the position target is.
 //   if quantity is less than 0, it's a short, otherwise it's long.
 // - target_timestamp: the time at which the position should be obtained.
-// - cancel: the target position request is cancelled. crosslink will cancel all
-// outstanding orders. However, current filled positions will still be
-// NOT be liquidated.
-//
-// Response to TargetPosition can be
-// - confirmation: the target position is confirmed.
-// - reject: the target position is rejected.
-// - fill: a fill for the target quantity.
-// - cancel: the cancellation of the target quantity is confirmed.
 message TargetPosition {
   // seq: seq of the target position.
   int64 seq = 2;
@@ -96,9 +87,6 @@ message Update {
   int64 seq = 3;
   // update information.
   oneof info {
-    Confirmation confirmation = 11;
-    Reject reject = 12;
-    Cancel cancel = 13;
     Fill fill = 14;
   }
 }
@@ -109,21 +97,34 @@ message Position {
   int64 base_instrument = 1;
   // quantity
   DecimalValue quantity = 2;
-  // value
-  // information only, equals sum of fill_quantity*fill_price
-  DecimalValue value = 3;
+  // current target position
+  DecimalValue current_target_position = 3;
+  // fills
+  repeated Fill fills = 4;
 }
 
 // CrosslinkService
+//
+// TargetPosition is managed through the below workflow:
+// - current target position and held quantities can be queried through
+// GetCurrentPosition
+// - target positions can be updated with SendTargetPosition
+// - the updates to the target positions can be received by subscribing to
+// SubscribeTargetPosition.
+// - trading can be stopped by CancelTargetPosition
 service Crosslink {
-  // TargetPosition tries to get the target position.
-  rpc TargetPosition(stream TargetPositionRequest)
-      returns (stream TargetPositionResponse) {}
+  // Subscribe Target Position Updates
+  rpc SubscribeTargetPosition(SubscribeTargetPositionRequest)
+      returns (stream SubscribeTargetPositionResponse) {}
 
-  // SendTargetposition sends one single target request instruction, and wait
-  // for confirmation or reject.
+  // Send a new set of target positions
   rpc SendTargetPosition(SendTargetPositionRequest)
       returns (SendTargetPositionResponse) {}
+
+  // Cancel outstanding target positions and cease trading.
+  // Current held positions are kept and not liquidated.
+  rpc CancelTargetPosition(CancelTargetPositionRequest)
+      returns (CancelTargetPositionResponse) {}
 
   // GetCurrentposition gets the current positions for one on_behalf_of.
   rpc GetCurrentPosition(GetCurrentPositionRequest)
@@ -136,12 +137,43 @@ service Crosslink {
       returns (LookupLocationIdResponse) {}
 }
 
-message TargetPositionRequest {
-  TargetPosition target_position = 1;
+message SubscribeTargetPositionRequest {
+  int64 on_behalf_of = 1;
+  repeated int64 base_instruments = 2;
+  // subscribe_to_all will return all updates to a this on_behalf_of
+  // base_instruments fields will be ignored.
+  bool subscribe_to_all = 3;
 }
 
-message TargetPositionResponse {
-  Update update = 1;
+// Update Response
+message SubscribeTargetPositionResponse {
+  repeated Update update = 1;
+}
+
+message SendTargetPositionRequest {
+  repeated TargetPosition target_position = 1;
+}
+
+message SendTargetPositionResponse {
+  message RejectOrConfirm {
+    oneof reject_or_confirm_info {
+      Confirmation confirmation = 1;
+      Reject reject = 2;
+    }
+  }
+  repeated RejectOrConfirm responses = 1;
+}
+
+message CancelTargetPositionRequest {
+  int64 on_behalf_of = 1;
+  repeated int64 base_instruments = 2;
+  // cancel_all will cancel all the current open orders and stop trading.
+  // base_instruments will be ignored.
+  bool cancel_all = 3;
+}
+
+message CancelTargetPositionResponse {
+  repeated int64 cancelled_target_positions = 1;
 }
 
 message GetCurrentPositionRequest {
@@ -154,14 +186,6 @@ message GetCurrentPositionResponse {
     string error = 1;
   }
   GetCurrentPositionError error = 2;
-}
-
-message SendTargetPositionRequest {
-  TargetPosition target_position = 1;
-}
-
-message SendTargetPositionResponse {
-  Update update = 1;
 }
 
 message LookupInstrumentIdRequest {
