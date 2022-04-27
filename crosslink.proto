@@ -21,6 +21,9 @@ message DecimalValue {
 
 // TargetPosition is a position target requested by the user.
 //
+// TargetPosition is uniquely identified by `on_behalf_of`, which is the sending
+// client, and the `base_instrument` id.
+//
 // TargetPosition contains
 // - base instrument: the instrument of the position.
 // - quantity: a quantity where the position target is.
@@ -28,50 +31,14 @@ message DecimalValue {
 // - target_timestamp: the time at which the position should be obtained.
 // - cancel: the target position request is cancelled. crosslink will cancel all
 // outstanding orders. However, current filled positions will still be
-// maintained.
+// NOT be liquidated.
 //
 // Response to TargetPosition can be
 // - confirmation: the target position is confirmed.
 // - reject: the target position is rejected.
 // - fill: a fill for the target quantity.
 // - cancel: the cancellation of the target quantity is confirmed.
-//
-// Sign Target Position
-//
-// TargetPosition should be signed by the private key of the `on_behalf_of`.
-// Server will look up public key for the `on_behalf_of` and verify the
-// signature.
-//
-// Key
-//
-// The private key pair from [ed25519
-// scheme](https://en.wikipedia.org/wiki/EdDSA). Private key is 64 byte and
-// public key is 32 byte.
-//
-// Signing message
-//
-// The message to be signed is constructed as follows:
-//
-// 1. `on_behalf_of` id, converted into unsigned 64 bit integer, in little
-// endian.
-// 2. `value` of the `quantity` field, converted into unsigned 64 bit integer,
-// in little endian.
-// 3. `decimal` of the `quantity` field, first converted into signed 64 bit
-// integer, then converted into unsigned 64 bit integer, in little endian.
-// 4. `base_instrument`, converted into unsigned 64 bit integer, in little
-// endian.
-// 5. `target_timestamp`, converted into unsigned 64 bit integer, in little
-// endian.
-//
-// The message is 40 bytes in total.
-//
-// The message is then signed by the private key of `on_behalf_of`
-//
-// golang implementation is in the `verify` subpackage.
-//
 message TargetPosition {
-  // id: the id of the target position.
-  int64 id = 1;
   // seq: seq of the target position.
   int64 seq = 2;
   // on_behalf_of: the ultimate owner of the position, used to get the necessary
@@ -84,7 +51,7 @@ message TargetPosition {
   // is cancel
   bool is_cancel = 6;
   // target timestamp.
-  // see comments on Timestamp
+  // nano seconds since unix epoch.see comments on Timestamp.
   uint64 target_timestamp = 7;
   // buy limit price.
   // omit to indicate a market price.
@@ -92,29 +59,22 @@ message TargetPosition {
   // sell limit price.
   // omit to indicat a market price.
   DecimalValue sell_limit_price = 9;
-  // signature of the target position.
-  // see comments on this message for details.
-  bytes signature = 10;
 }
 
 // Fill is the fill sent back.
 message Fill {
   // id of the fill.
   int64 id = 1;
-  // order id this fill is for
-  int64 target_position_id = 2;
   // quantity filled.
-  DecimalValue filled_quantity = 3;
+  DecimalValue fill_quantity = 4;
   // price at which the fill happens
-  DecimalValue fill_price = 4;
+  DecimalValue fill_price = 5;
   // the location id. where the fill is coming from.
   // **note**: this destination_id is not necessarily same as the order's
   // destination id. for example, the order may be sent to the router, the
   // router then routes the order to SERUM, and gets the fills. The destination
   // should be SERUM, where the fill is ultimately from.
-  int64 fill_venue = 5;
-  // remaining quantity still being worked on.
-  DecimalValue remaining = 6;
+  int64 fill_venue = 6;
 }
 
 // Confirmation is a confirmation sent back from the destination.
@@ -128,17 +88,30 @@ message Cancel {}
 
 // OrderUpdate is sent back to the order sender.
 message Update {
-  //  id of the corresponding TargetPosition
-  int64 target_position_id = 1;
+  // which client this target position is for.
+  int64 on_behalf_of = 1;
+  // base instrument this target position is for.
+  int64 base_instrument = 2;
   // sequence number of the update.
-  int64 seq = 2;
+  int64 seq = 3;
   // update information.
   oneof info {
-    Confirmation confirmation = 3;
-    Reject reject = 4;
-    Cancel cancel = 5;
-    Fill fill = 6;
+    Confirmation confirmation = 11;
+    Reject reject = 12;
+    Cancel cancel = 13;
+    Fill fill = 14;
   }
+}
+
+// Position held.
+message Position {
+  // instrument
+  int64 base_instrument = 1;
+  // quantity
+  DecimalValue quantity = 2;
+  // value
+  // information only, equals sum of fill_quantity*fill_price
+  DecimalValue value = 3;
 }
 
 // CrosslinkService
@@ -146,6 +119,15 @@ service Crosslink {
   // TargetPosition tries to get the target position.
   rpc TargetPosition(stream TargetPositionRequest)
       returns (stream TargetPositionResponse) {}
+
+  // SendTargetposition sends one single target request instruction, and wait
+  // for confirmation or reject.
+  rpc SendTargetPosition(SendTargetPositionRequest)
+      returns (SendTargetPositionResponse) {}
+
+  // GetCurrentposition gets the current positions for one on_behalf_of.
+  rpc GetCurrentPosition(GetCurrentPositionRequest)
+      returns (GetCurrentPositionResponse) {}
 
   rpc LookupInstrumentId(LookupInstrumentIdRequest)
       returns (LookupInstrumentIdResponse) {}
@@ -159,6 +141,26 @@ message TargetPositionRequest {
 }
 
 message TargetPositionResponse {
+  Update update = 1;
+}
+
+message GetCurrentPositionRequest {
+  int64 on_behalf_of = 1;
+}
+
+message GetCurrentPositionResponse {
+  repeated Position positions = 1;
+  message GetCurrentPositionError {
+    string error = 1;
+  }
+  GetCurrentPositionError error = 2;
+}
+
+message SendTargetPositionRequest {
+  TargetPosition target_position = 1;
+}
+
+message SendTargetPositionResponse {
   Update update = 1;
 }
 
