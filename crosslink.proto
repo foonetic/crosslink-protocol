@@ -22,19 +22,19 @@ message DecimalValue {
 // TargetPosition is a position target requested by the user.
 //
 // TargetPosition contains
-// - trading_pair: the quote/base instrument for the order.
+// - base instrument: the instrument of the position.
 // - quantity: a quantity where the position target is.
 //   if quantity is less than 0, it's a short, otherwise it's long.
 // - target_timestamp: the time at which the position should be obtained.
 // - cancel: the target position request is cancelled. crosslink will cancel all
-// outstanding orders.
+// outstanding orders. However, current filled positions will still be
+// maintained.
 //
 // Response to TargetPosition can be
 // - confirmation: the target position is confirmed.
 // - reject: the target position is rejected.
 // - fill: a fill for the target quantity.
-// - cancel: the cancellation of the target quantity is confirmed. no quantity
-// being worked on.
+// - cancel: the cancellation of the target quantity is confirmed.
 //
 // Sign Target Position
 //
@@ -58,7 +58,7 @@ message DecimalValue {
 // in little endian.
 // 3. `decimal` of the `quantity` field, first converted into signed 64 bit
 // integer, then converted into unsigned 64 bit integer, in little endian.
-// 4. `trading_pair_id`, converted into unsigned 64 bit integer, in little
+// 4. `base_instrument`, converted into unsigned 64 bit integer, in little
 // endian.
 // 5. `target_timestamp`, converted into unsigned 64 bit integer, in little
 // endian.
@@ -80,7 +80,7 @@ message TargetPosition {
   // quantity
   DecimalValue quantity = 4;
   // the instrument to trade for.
-  int32 base_instrument = 5;
+  int64 base_instrument = 5;
   // is cancel
   bool is_cancel = 6;
   // target timestamp.
@@ -112,7 +112,7 @@ message Fill {
   // destination id. for example, the order may be sent to the router, the
   // router then routes the order to SERUM, and gets the fills. The destination
   // should be SERUM, where the fill is ultimately from.
-  int32 fill_venue = 5;
+  int64 fill_venue = 5;
   // remaining quantity still being worked on.
   DecimalValue remaining = 6;
 }
@@ -151,7 +151,7 @@ service Crosslink {
       returns (LookupInstrumentIdResponse) {}
 
   rpc LookupLocationId(LookupLocationIdRequest)
-    returns (LookupLocationIdResponse) {}
+      returns (LookupLocationIdResponse) {}
 }
 
 message TargetPositionRequest {
@@ -166,12 +166,12 @@ message LookupInstrumentIdRequest {
   string name = 1;
 }
 
-
 message LookupInstrumentIdResponse {
-  oneof response {
-      int32 instrument_id = 1;
-      string error = 2;
+  int64 instrument_id = 1;
+  message LookupInstrumentIdError {
+    string error = 1;
   }
+  LookupInstrumentIdError error = 2;
 }
 
 message LookupLocationIdRequest {
@@ -179,8 +179,9 @@ message LookupLocationIdRequest {
 }
 
 message LookupLocationIdResponse {
-    oneof response {
-        int32 location_id = 1;
-        string error = 2;
-    }
+  int64 location_id = 1;
+  message LookupLocationIdError {
+    string error = 1;
+  }
+  LookupLocationIdError error = 2;
 }
