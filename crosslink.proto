@@ -110,12 +110,12 @@ message Position {
 // GetCurrentPosition
 // - target positions can be updated with SendTargetPosition
 // - the updates to the target positions can be received by subscribing to
-// SubscribeTargetPosition.
+// SubscribePosition.
 // - trading can be stopped by CancelTargetPosition
 service Crosslink {
   // Subscribe Target Position Updates
-  rpc SubscribeTargetPosition(SubscribeTargetPositionRequest)
-      returns (stream SubscribeTargetPositionResponse) {}
+  rpc SubscribePosition(stream SubscribePositionRequest)
+      returns (stream SubscribePositionResponse) {}
 
   // Send a new set of target positions
   rpc SendTargetPosition(SendTargetPositionRequest)
@@ -137,16 +137,18 @@ service Crosslink {
       returns (LookupLocationIdResponse) {}
 }
 
-message SubscribeTargetPositionRequest {
+message SubscribePositionRequest {
   int64 on_behalf_of = 1;
   repeated int64 base_instruments = 2;
   // subscribe_to_all will return all updates to a this on_behalf_of
   // base_instruments fields will be ignored.
   bool subscribe_to_all = 3;
+  // disconnect
+  bool disconnect = 4;
 }
 
 // Update Response
-message SubscribeTargetPositionResponse {
+message SubscribePositionResponse {
   repeated Update update = 1;
 }
 
