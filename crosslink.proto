@@ -99,6 +99,7 @@ message Update {
   // update information.
   oneof info {
     Fill fill = 14;
+    Position position = 15;
   }
 }
 
@@ -128,7 +129,7 @@ message Position {
 // - trading can be stopped by CancelTargetPosition
 service Crosslink {
   // Subscribe Target Position Updates
-  rpc SubscribePosition(stream SubscribePositionRequest)
+  rpc SubscribePosition(SubscribePositionRequest)
       returns (stream SubscribePositionResponse) {}
 
   // Send a new set of target positions
@@ -161,13 +162,10 @@ message SubscribePositionRequest {
   // subscribe_to_all will return all updates to a this on_behalf_of.
   // base_instruments fields will be ignored.
   bool subscribe_to_all = 3;
-
-  // disconnect
-  bool disconnect = 4;
 }
 
 message SubscribePositionResponse {
-  repeated Update update = 1;
+  Update update = 1;
 }
 
 /* SendTargetPosition */
