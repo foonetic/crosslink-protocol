@@ -30,7 +30,13 @@ message DecimalValue {
 //   if quantity is less than 0, it's a short, otherwise it's long.
 // - target_timestamp: the time at which the position should be obtained.
 message TargetPosition {
-  // seq: seq of the target position.
+  // seq of the target position.
+  // this should be monotonic increasing number (not necessarily consecutive)
+  // from the client. crosslink will reject all target positions requests that
+  // have older seq. seq is used to ensure that requests that failed to reach
+  // crosslink will not be accidentally received after newer requests are
+  // processed.
+  //
   int64 seq = 2;
   // on_behalf_of: the ultimate owner of the position, used to get the necessary
   // authorizations etc.
@@ -39,10 +45,8 @@ message TargetPosition {
   DecimalValue quantity = 4;
   // the instrument to trade for.
   int64 base_instrument = 5;
-  // is cancel
-  bool is_cancel = 6;
   // target timestamp.
-  // nano seconds since unix epoch.see comments on Timestamp.
+  // nano seconds since unix epoch.
   uint64 target_timestamp = 7;
   // buy limit price.
   // omit to indicate a market price.
@@ -56,26 +60,33 @@ message TargetPosition {
 message Fill {
   // id of the fill.
   int64 id = 1;
+  // timestamp of the fill. nano seconds since unix epoch.
+  uint64 timestamp = 2;
   // quantity filled.
   DecimalValue fill_quantity = 4;
   // price at which the fill happens
   DecimalValue fill_price = 5;
   // the location id. where the fill is coming from.
-  // **note**: this destination_id is not necessarily same as the order's
-  // destination id. for example, the order may be sent to the router, the
-  // router then routes the order to SERUM, and gets the fills. The destination
-  // should be SERUM, where the fill is ultimately from.
+  // **note**: this destination_id is not necessarily same as an order's
+  // destination id. for example, an order may be sent to a smart order router,
+  // which routes the order to SERUM, and gets the fills. destination should be
+  // SERUM, where the fill is ultimately from.
   int64 fill_venue = 6;
 }
 
-// Confirmation is a confirmation sent back from the destination.
+// Confirmation confirms the target position request is received.
 message Confirmation {}
 
-// Reject
-message Reject {}
-
-// Cancel.
-message Cancel {}
+// Reject rejects the target position.
+message Reject {
+  enum RejectReason {
+    // Unknown reject reason.
+    UNKNOWN = 0;
+    // seq in the target position is too old.
+    SEQ_TOO_OLD = 1;
+  }
+  RejectReason reject_reason = 1;
+}
 
 // OrderUpdate is sent back to the order sender.
 message Update {
@@ -95,15 +106,18 @@ message Update {
 message Position {
   // instrument
   int64 base_instrument = 1;
+  // last update timestamp of the position.
+  // nano seconds from unix epoch.
+  uint64 last_update_timestamp = 2;
   // quantity
-  DecimalValue quantity = 2;
+  DecimalValue quantity = 11;
   // current target position
-  DecimalValue current_target_position = 3;
+  DecimalValue current_target_position = 12;
   // fills
-  repeated Fill fills = 4;
+  repeated Fill fills = 13;
 }
 
-// CrosslinkService
+// Crosslink
 //
 // TargetPosition is managed through the below workflow:
 // - current target position and held quantities can be queried through
@@ -137,20 +151,26 @@ service Crosslink {
       returns (LookupLocationIdResponse) {}
 }
 
+/* SubscribePosition */
+
 message SubscribePositionRequest {
   int64 on_behalf_of = 1;
+
   repeated int64 base_instruments = 2;
-  // subscribe_to_all will return all updates to a this on_behalf_of
+
+  // subscribe_to_all will return all updates to a this on_behalf_of.
   // base_instruments fields will be ignored.
   bool subscribe_to_all = 3;
+
   // disconnect
   bool disconnect = 4;
 }
 
-// Update Response
 message SubscribePositionResponse {
   repeated Update update = 1;
 }
+
+/* SendTargetPosition */
 
 message SendTargetPositionRequest {
   repeated TargetPosition target_position = 1;
@@ -158,17 +178,23 @@ message SendTargetPositionRequest {
 
 message SendTargetPositionResponse {
   message RejectOrConfirm {
+    int64 on_behalf_of = 1;
+    int64 base_instrument = 2;
     oneof reject_or_confirm_info {
-      Confirmation confirmation = 1;
-      Reject reject = 2;
+      Confirmation confirmation = 3;
+      Reject reject = 4;
     }
   }
   repeated RejectOrConfirm responses = 1;
 }
 
+/* CancelTargetPosition */
+
 message CancelTargetPositionRequest {
   int64 on_behalf_of = 1;
+
   repeated int64 base_instruments = 2;
+
   // cancel_all will cancel all the current open orders and stop trading.
   // base_instruments will be ignored.
   bool cancel_all = 3;
@@ -178,17 +204,23 @@ message CancelTargetPositionResponse {
   repeated int64 cancelled_target_positions = 1;
 }
 
+// GetCurrentPosition
+
 message GetCurrentPositionRequest {
   int64 on_behalf_of = 1;
 }
 
 message GetCurrentPositionResponse {
+  // all the positions
   repeated Position positions = 1;
+
   message GetCurrentPositionError {
     string error = 1;
   }
   GetCurrentPositionError error = 2;
 }
+
+// LookupInstrumentId
 
 message LookupInstrumentIdRequest {
   string name = 1;
@@ -201,6 +233,8 @@ message LookupInstrumentIdResponse {
   }
   LookupInstrumentIdError error = 2;
 }
+
+// LookupLocationId
 
 message LookupLocationIdRequest {
   string name = 1;
