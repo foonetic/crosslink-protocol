@@ -47,7 +47,7 @@ message TargetPosition {
   int64 base_instrument = 5;
   // target timestamp.
   // nano seconds since unix epoch.
-  uint64 target_timestamp = 7;
+  int64 target_timestamp = 7;
   // buy limit price.
   // omit to indicate a market price.
   DecimalValue buy_limit_price = 8;
@@ -61,7 +61,7 @@ message Fill {
   // id of the fill.
   int64 id = 1;
   // timestamp of the fill. nano seconds since unix epoch.
-  uint64 timestamp = 2;
+  int64 timestamp = 2;
   // quantity filled.
   DecimalValue fill_quantity = 4;
   // price at which the fill happens
@@ -109,7 +109,7 @@ message Position {
   int64 base_instrument = 1;
   // last update timestamp of the position.
   // nano seconds from unix epoch.
-  uint64 last_update_timestamp = 2;
+  int64 last_update_timestamp = 2;
   // quantity
   DecimalValue quantity = 11;
   // current target position
