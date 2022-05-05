@@ -62,10 +62,16 @@ message Fill {
   int64 id = 1;
   // timestamp of the fill. nano seconds since unix epoch.
   int64 timestamp = 2;
+  // seq of the target position request that this fill is for.
+  int64 target_position_seq = 3;
   // quantity filled.
   DecimalValue fill_quantity = 4;
-  // price at which the fill happens
-  DecimalValue fill_price = 5;
+  // value of the fill. this equals the fill price * fill quantity.
+  // for example, if buy 1 BTC is filled at 100 USDC. The fill quantity will be
+  // 1, and the fill value will be 100.
+  // if sell 1 BTC is filled at 100 USDC. the fill quantity will be -1, and the
+  // fill value will be -100.
+  DecimalValue fill_value = 5;
   // the location id. where the fill is coming from.
   // **note**: this destination_id is not necessarily same as an order's
   // destination id. for example, an order may be sent to a smart order router,
