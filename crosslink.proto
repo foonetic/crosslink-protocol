@@ -90,6 +90,8 @@ message Reject {
     UNKNOWN = 0;
     // seq in the target position is too old.
     SEQ_TOO_OLD = 1;
+    // Target quantity in the target position is invalid for the given market.
+    INVALID_QUANTITY = 2;
   }
   RejectReason reject_reason = 1;
 }
@@ -100,11 +102,12 @@ message Update {
   int64 on_behalf_of = 1;
   // base instrument this target position is for.
   int64 base_instrument = 2;
-  // sequence number of the update.
+  // sequence number of the update. Unique and monotonically increasing for a single base_instrument.
   int64 seq = 3;
   // update information.
   oneof info {
     Fill fill = 14;
+    // Position updates: not currently supported
     Position position = 15;
   }
 }
@@ -118,8 +121,8 @@ message Position {
   int64 last_update_timestamp = 2;
   // quantity
   DecimalValue quantity = 11;
-  // current target position
-  DecimalValue current_target_position = 12;
+  // current target position sequence
+  int64 current_target_position_seq = 12;
   // fills
   repeated Fill fills = 13;
 }
@@ -172,6 +175,10 @@ message SubscribePositionRequest {
 
 message SubscribePositionResponse {
   Update update = 1;
+  message SubscribePositionError {
+    string error = 2;
+  }
+  error SubscribePositionError = 3;
 }
 
 /* SendTargetPosition */
