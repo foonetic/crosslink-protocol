@@ -126,8 +126,6 @@ message Position {
   DecimalValue current_target_position = 12;
   // fills
   repeated Fill fills = 13;
-  // current target position sequence
-  int64 current_target_position_seq = 14;
 }
 
 // Crosslink
