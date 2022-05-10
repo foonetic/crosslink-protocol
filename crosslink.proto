@@ -102,7 +102,8 @@ message Update {
   int64 on_behalf_of = 1;
   // base instrument this target position is for.
   int64 base_instrument = 2;
-  // sequence number of the update. Unique and monotonically increasing for a single base_instrument.
+  // sequence number of the update. Unique and monotonically increasing for a
+  // single base_instrument.
   int64 seq = 3;
   // update information.
   oneof info {
@@ -121,10 +122,12 @@ message Position {
   int64 last_update_timestamp = 2;
   // quantity
   DecimalValue quantity = 11;
-  // current target position sequence
-  int64 current_target_position_seq = 12;
+  // current target position
+  DecimalValue current_target_position = 12;
   // fills
   repeated Fill fills = 13;
+  // current target position sequence
+  int64 current_target_position_seq = 14;
 }
 
 // Crosslink
@@ -178,7 +181,7 @@ message SubscribePositionResponse {
   message SubscribePositionError {
     string error = 2;
   }
-  error SubscribePositionError = 3;
+  SubscribePositionError error = 3;
 }
 
 /* SendTargetPosition */
@@ -215,7 +218,7 @@ message CancelTargetPositionResponse {
   repeated int64 cancelled_target_positions = 1;
 }
 
-// GetCurrentPosition
+/* GetCurrentPosition */
 
 message GetCurrentPositionRequest {
   int64 on_behalf_of = 1;
@@ -231,7 +234,7 @@ message GetCurrentPositionResponse {
   GetCurrentPositionError error = 2;
 }
 
-// LookupInstrumentId
+/* LookupInstrumentId */
 
 message LookupInstrumentIdRequest {
   string name = 1;
@@ -245,7 +248,7 @@ message LookupInstrumentIdResponse {
   LookupInstrumentIdError error = 2;
 }
 
-// LookupLocationId
+/* LookupLocationId */
 
 message LookupLocationIdRequest {
   string name = 1;
