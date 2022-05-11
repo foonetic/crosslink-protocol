@@ -92,6 +92,8 @@ message Reject {
     SEQ_TOO_OLD = 1;
     // Target quantity in the target position is invalid for the given market.
     INVALID_QUANTITY = 2;
+    // Limit price in the target position is invalid for the given market.
+    INVALID_PRICE = 3;
   }
   RejectReason reject_reason = 1;
 }
